@@ -3,14 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { collection, addDoc, serverTimestamp, query, where, getDocs, onSnapshot, orderBy } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { signOut } from "firebase/auth";
-import { 
+import {
   calculatePriority, 
   generateQueueId, 
   sortQueueByPriority,
   calculateEstimatedWaitTime,
   checkForNotifications,
   PRIORITY_LEVELS
-} from "../utils/priorityCalculator";
+} from "../utils/priorityCalculator.js";
+import HealthTipPlanner from "./HealthTipPlanner";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -32,8 +33,49 @@ const Home = () => {
   const [priorityInfo, setPriorityInfo] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [customQueueId, setCustomQueueId] = useState(null);
+  const [phoneValidation, setPhoneValidation] = useState({ isValid: true, message: '' });
 
   const avgTimePerPatient = 10; // minutes per patient
+
+  // Phone number formatting function
+  const formatPhoneNumber = (phoneNumber) => {
+    let formatted = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    if (!formatted.startsWith('+')) {
+      // Assume Indian number if no country code and 10 digits
+      if (formatted.length === 10) {
+        formatted = '+91' + formatted;
+      } else if (formatted.length > 10) {
+        formatted = '+' + formatted;
+      }
+    }
+    return formatted;
+  };
+
+  // Validate phone number format
+  const validatePhoneNumber = (phoneNumber) => {
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    return phoneRegex.test(phoneNumber.replace(/[\s\-\(\)]/g, ''));
+  };
+
+  // Handle contact number change with real-time validation
+  const handleContactChange = (e) => {
+    const value = e.target.value;
+    setContact(value);
+    
+    if (value.length > 0) {
+      const isValid = validatePhoneNumber(value);
+      if (!isValid) {
+        setPhoneValidation({
+          isValid: false,
+          message: 'Please include country code (e.g., +91 9876543210)'
+        });
+      } else {
+        setPhoneValidation({ isValid: true, message: '✓ Valid phone number format' });
+      }
+    } else {
+      setPhoneValidation({ isValid: true, message: '' });
+    }
+  };
 
   useEffect(() => {
     // Check if user is authenticated
@@ -185,6 +227,17 @@ const Home = () => {
     setLoading(true);
 
     try {
+      // Validate and format phone number
+      if (!validatePhoneNumber(contact)) {
+        alert('Please enter a valid phone number with country code (e.g., +91 9876543210)');
+        setLoading(false);
+        return;
+      }
+
+      const formattedContact = formatPhoneNumber(contact);
+      console.log('📞 Original contact:', contact);
+      console.log('📞 Formatted contact:', formattedContact);
+
       // Calculate patient priority based on age and symptoms
       const priority = calculatePriority(parseInt(age), symptoms);
       setPriorityInfo(priority);
@@ -213,7 +266,7 @@ const Home = () => {
       // Add new patient to queue temporarily to calculate position
       const tempQueue = [...currentQueue, {
         priorityScore: priority.score,
-        priority: priority.priority,
+        priority: priority,
         timestamp: { seconds: Date.now() / 1000 }
       }];
 
@@ -222,7 +275,7 @@ const Home = () => {
         item.priorityScore === priority.score && !item.id
       ) + 1;
 
-      const calculatedWaitTime = calculateEstimatedWaitTime(calculatedPosition, priority.priority.name);
+      const calculatedWaitTime = calculateEstimatedWaitTime(calculatedPosition, priority.name);
 
       // Add queue entry to Firestore with priority and custom ID
       const docRef = await addDoc(collection(db, "queues"), {
@@ -231,15 +284,16 @@ const Home = () => {
         patientEmail: auth.currentUser.email,
         name,
         age: parseInt(age),
-        contact,
+        contact: formattedContact, // Use formatted phone number
+        originalContact: contact, // Keep original for reference
         hospital,
         department,
         doctor,
         symptoms,
-        priority: priority.priority,
+        priority: priority,
         priorityScore: priority.score,
-        priorityReasons: priority.reasons,
-        escalated: priority.escalated,
+        priorityDescription: priority.description, // Use description instead of undefined reasons
+        escalated: priority.score >= 80, // Mark as escalated if High or Critical priority
         status: "waiting",
         queuePosition: calculatedPosition,
         estimatedWaitTime: calculatedWaitTime,
@@ -266,10 +320,10 @@ const Home = () => {
       setQueueStatus("waiting");
 
       // Show priority information to user
-      if (priority.escalated) {
+      if (priority.score >= 80) { // Show notification for High or Critical priority
         setNotifications([{
           type: 'priority_assigned',
-          message: `Your queue has been prioritized: ${priority.priority.name}. Reasons: ${priority.reasons.join(', ')}`,
+          message: `Your queue has been prioritized: ${priority.name}. Your priority level has been automatically assigned.`,
           priority: 'info'
         }]);
       }
@@ -277,13 +331,28 @@ const Home = () => {
       console.log(`Queue created successfully:
         - Custom Queue ID: ${customId}
         - Firestore ID: ${newQueueId}
-        - Priority: ${priority.priority.name} (Score: ${priority.score})
+        - Priority: ${priority.name} (Score: ${priority.score})
         - Position: ${calculatedPosition}
         - Estimated wait: ${calculatedWaitTime} minutes
-        - Reasons: ${priority.reasons.join(', ')}`);
+        - Description: ${priority.description}`);
 
       // Enable real-time updates after successful queue creation
       setRealTimeUpdates(true);
+
+      // Show success message
+      alert(`Queue booked successfully! 
+      
+Queue ID: ${customId}
+Priority: ${priority.name}
+Position: ${calculatedPosition}
+Estimated wait: ${calculatedWaitTime} minutes
+
+Redirecting to your dashboard...`);
+
+      // Redirect to patient dashboard after successful queue creation
+      setTimeout(() => {
+        navigate("/patient");
+      }, 1500); // Small delay to show success message
 
     } catch (err) {
       console.error("Error creating queue:", err);
@@ -323,130 +392,168 @@ const Home = () => {
       </header>
 
       <main className="home-main">
-        <div className="welcome-container">
-          <h2>Welcome to Patient Portal</h2>
-          <p>You have successfully logged in to your patient account.</p>
-        </div>
-
-        {/* Queue / Appointment Form */}
-        <div className="queue-form-container">
-          <div className="queue-form-header">
-            <h2>Book Your Appointment / Queue</h2>
-            <p>Fill in the details below to join the hospital queue</p>
+        <div className="home-container">
+          {/* Welcome Card */}
+          <div className="welcome-card">
+            <div className="welcome-content">
+              <div className="welcome-icon">🏥</div>
+              <h2>Welcome to Patient Portal</h2>
+              <p>Book your appointment and join the hospital queue easily</p>
+            </div>
           </div>
-          
-          <form className="queue-form" onSubmit={handleSubmit}>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="name">Full Name</label>
-                <input
-                  id="name"
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="age">Age</label>
-                <input
-                  id="age"
-                  type="number"
-                  placeholder="Enter your age"
-                  value={age}
-                  onChange={e => setAge(e.target.value)}
-                  required
-                />
+
+          {/* Health Tips Card */}
+          <div className="health-tips-card">
+            <HealthTipPlanner userId={auth?.currentUser?.uid} />
+          </div>
+
+          {/* Queue Booking Card */}
+          <div className="queue-booking-card">
+            <div className="card-header">
+              <div className="header-icon">📋</div>
+              <div className="header-content">
+                <h2>Book Your Appointment</h2>
+                <p>Fill in the details below to join the hospital queue</p>
               </div>
             </div>
+            
+            <form className="queue-form" onSubmit={handleSubmit}>
+              <div className="form-section">
+                <h3>Personal Information</h3>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="name">Full Name</label>
+                    <input
+                      id="name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="age">Age</label>
+                    <input
+                      id="age"
+                      type="number"
+                      placeholder="Enter your age"
+                      value={age}
+                      onChange={e => setAge(e.target.value)}
+                      required
+                      min="1"
+                      max="120"
+                    />
+                  </div>
+                </div>
 
-            <div className="form-group">
-              <label htmlFor="contact">Contact Number</label>
-              <input
-                id="contact"
-                type="tel"
-                placeholder="Enter your contact number"
-                value={contact}
-                onChange={e => setContact(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="hospital">Select Hospital</label>
-                <select
-                  id="hospital"
-                  value={hospital}
-                  onChange={e => setHospital(e.target.value)}
-                  required
-                >
-                  <option value="">Choose a hospital</option>
-                  <option value="City Care Hospital">City Care Hospital</option>
-                  <option value="LifeLine Hospital">LifeLine Hospital</option>
-                  <option value="MediCare Central">MediCare Central</option>
-                  <option value="General Hospital">General Hospital</option>
-                </select>
+                <div className="form-group">
+                  <label htmlFor="contact">Contact Number</label>
+                  <input
+                    id="contact"
+                    type="tel"
+                    placeholder="Enter your contact number (e.g., +91 9876543210)"
+                    value={contact}
+                    onChange={handleContactChange}
+                    required
+                    style={{
+                      borderColor: phoneValidation.isValid ? '#ddd' : '#dc3545'
+                    }}
+                  />
+                  <small style={{
+                    color: phoneValidation.isValid ? '#28a745' : '#dc3545', 
+                    fontSize: '0.8rem', 
+                    marginTop: '0.25rem', 
+                    display: 'block'
+                  }}>
+                    {phoneValidation.message || 'Include country code (e.g., +91 for India, +1 for US)'}
+                  </small>
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="department">Select Department</label>
-                <select
-                  id="department"
-                  value={department}
-                  onChange={e => setDepartment(e.target.value)}
-                  required
-                >
-                  <option value="">Choose a department</option>
-                  <option value="Cardiology">Cardiology</option>
-                  <option value="Neurology">Neurology</option>
-                  <option value="Orthopedics">Orthopedics</option>
-                  <option value="Pediatrics">Pediatrics</option>
-                  <option value="Dermatology">Dermatology</option>
-                  <option value="General Medicine">General Medicine</option>
-                </select>
+
+              <div className="form-section">
+                <h3>Appointment Details</h3>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="hospital">Select Hospital</label>
+                    <select
+                      id="hospital"
+                      value={hospital}
+                      onChange={e => setHospital(e.target.value)}
+                      required
+                    >
+                      <option value="">Choose a hospital</option>
+                      <option value="City Care Hospital">City Care Hospital</option>
+                      <option value="LifeLine Hospital">LifeLine Hospital</option>
+                      <option value="MediCare Central">MediCare Central</option>
+                      <option value="General Hospital">General Hospital</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="department">Select Department</label>
+                    <select
+                      id="department"
+                      value={department}
+                      onChange={e => setDepartment(e.target.value)}
+                      required
+                    >
+                      <option value="">Choose a department</option>
+                      <option value="Cardiology">Cardiology</option>
+                      <option value="Neurology">Neurology</option>
+                      <option value="Orthopedics">Orthopedics</option>
+                      <option value="Pediatrics">Pediatrics</option>
+                      <option value="Dermatology">Dermatology</option>
+                      <option value="General Medicine">General Medicine</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="doctor">Preferred Doctor (Optional)</label>
+                  <input
+                    id="doctor"
+                    type="text"
+                    placeholder="Enter doctor's name if you have a preference"
+                    value={doctor}
+                    onChange={e => setDoctor(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="form-group">
-              <label htmlFor="doctor">Preferred Doctor (Optional)</label>
-              <input
-                id="doctor"
-                type="text"
-                placeholder="Enter doctor's name if you have a preference"
-                value={doctor}
-                onChange={e => setDoctor(e.target.value)}
-              />
-            </div>
+              <div className="form-section">
+                <h3>Additional Information</h3>
+                <div className="form-group">
+                  <label htmlFor="symptoms">Symptoms / Notes (Optional)</label>
+                  <textarea
+                    id="symptoms"
+                    placeholder="Describe your symptoms or any additional notes"
+                    value={symptoms}
+                    onChange={e => setSymptoms(e.target.value)}
+                    rows="3"
+                  />
+                </div>
+              </div>
 
-            <div className="form-group">
-              <label htmlFor="symptoms">Symptoms / Notes (Optional)</label>
-              <textarea
-                id="symptoms"
-                placeholder="Describe your symptoms or any additional notes"
-                value={symptoms}
-                onChange={e => setSymptoms(e.target.value)}
-                rows="3"
-              />
-            </div>
-
-            <button type="submit" className="submit-button" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="loading-spinner"></span>
-                  Booking Queue...
-                </>
-              ) : (
-                <>
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10 1L13 4H7L10 1Z" fill="currentColor"/>
-                    <rect x="2" y="4" width="16" height="14" rx="1" fill="currentColor"/>
-                  </svg>
-                  Book Queue
-                </>
-              )}
-            </button>
-          </form>
+              <div className="form-actions">
+                <button type="submit" className="submit-button" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="loading-spinner"></span>
+                      Booking Queue...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M10 1L13 4H7L10 1Z" fill="currentColor"/>
+                        <rect x="2" y="4" width="16" height="14" rx="1" fill="currentColor"/>
+                      </svg>
+                      Book Queue
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div> {/* Close queue-booking-card */}
 
           {queueId && (
             <div className="queue-details">
@@ -471,12 +578,12 @@ const Home = () => {
               {/* Priority Information */}
               {priorityInfo && (
                 <div className="priority-info">
-                  <div className="priority-badge" style={{ backgroundColor: priorityInfo.priority.color }}>
-                    {priorityInfo.priority.name}
+                  <div className="priority-badge" style={{ backgroundColor: priorityInfo.color }}>
+                    {priorityInfo.name}
                   </div>
                   {priorityInfo.escalated && (
                     <div className="priority-reasons">
-                      <strong>Priority Reasons:</strong> {priorityInfo.reasons.join(', ')}
+                      <strong>Priority Level:</strong> {priorityInfo.description}
                     </div>
                   )}
                 </div>
@@ -549,7 +656,7 @@ const Home = () => {
               </div>
             </div>
           )}
-        </div>
+        </div> {/* Close home-container */}
       </main>
     </div>
   );
