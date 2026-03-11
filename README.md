@@ -2,6 +2,11 @@
 
 A modern, responsive hospital management system built with React and Firebase.
 
+## Architecture
+
+- High-level system architecture diagram: `ARCHITECTURE.md`
+- Editable Draw.io diagram: `architecture.drawio`
+
 ## Features
 
 - 🏥 **Professional Landing Page**: Clean, medical-themed design

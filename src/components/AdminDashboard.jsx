@@ -291,10 +291,13 @@ const AdminDashboard = () => {
           console.log(`📱 SMS sent to ${currentPatient.name} for status: ${newStatus}`);
         } catch (smsError) {
           console.error('SMS notification failed:', smsError);
+          const statusSmsMsg = smsError.message.includes('sender mismatch') || smsError.message.includes('country mismatch')
+            ? 'Status updated. SMS skipped: sender not configured for this region.'
+            : `Status updated but SMS failed: ${smsError.message}`;
           setNotifications(prev => [...prev, {
             id: Date.now(),
             type: 'warning',
-            message: `Status updated but SMS failed: ${smsError.message}`,
+            message: statusSmsMsg,
             timestamp: new Date().toLocaleTimeString()
           }]);
         }
@@ -512,10 +515,13 @@ const AdminDashboard = () => {
         }]);
       } catch (smsError) {
         console.error('SMS notification failed:', smsError);
+        const escalateSmsMsg = smsError.message.includes('sender mismatch') || smsError.message.includes('country mismatch')
+          ? 'Patient escalated. SMS skipped: sender not configured for this region.'
+          : `Patient escalated but SMS failed: ${smsError.message}`;
         setNotifications(prev => [...prev, {
           id: Date.now(),
           type: 'warning',
-          message: `Patient escalated but SMS notification failed: ${smsError.message}`,
+          message: escalateSmsMsg,
           timestamp: new Date().toLocaleTimeString()
         }]);
       }
@@ -550,10 +556,13 @@ const AdminDashboard = () => {
         timestamp: new Date().toLocaleTimeString()
       }]);
     } catch (error) {
+      const smsErrMsg = error.message.includes('sender mismatch') || error.message.includes('country mismatch')
+        ? 'SMS failed: sender not configured for this region. Set VITE_TWILIO_MESSAGING_SERVICE_SID in .env.'
+        : `SMS failed: ${error.message}`;
       setNotifications(prev => [...prev, {
         id: Date.now(),
-        type: 'error',
-        message: `SMS failed: ${error.message}`,
+        type: 'warning',
+        message: smsErrMsg,
         timestamp: new Date().toLocaleTimeString()
       }]);
     } finally {
@@ -1234,9 +1243,8 @@ Available variables: {name}, {queueId}, {hospital}, {department}"
                       </th>
                       <th>Queue ID</th>
                       <th>Patient Name</th>
-                      <th>Priority</th>
                       <th>Position</th>
-                      <th>Wait Time</th>
+                      <th>Symptoms</th>
                       <th>Status</th>
                       <th>Time in Queue</th>
                       <th>Contact</th>
@@ -1265,23 +1273,14 @@ Available variables: {name}, {queueId}, {hospital}, {department}"
                           </div>
                         </td>
                         
-                        <td className="priority-cell">
-                          <div 
-                            className="priority-badge" 
-                            style={{ backgroundColor: patient.priority?.color || '#6b7280' }}
-                          >
-                            {patient.priority?.name || 'Standard'}
-                          </div>
-                          {patient.escalated && <span className="escalated-indicator">🚨</span>}
-                        </td>
-                        
                         <td className="position">
                           {patient.currentPosition || patient.queuePosition || '-'}
                         </td>
                         
-                        <td className="wait-time">
-                          {patient.estimatedWaitTime ? `${patient.estimatedWaitTime} min` : 
-                           patient.currentPosition ? `${(patient.currentPosition - 1) * 10} min` : '-'}
+                        <td className="symptoms">
+                          <div className="symptoms-text" title={patient.symptoms || 'No symptoms recorded'}>
+                            {patient.symptoms || 'Not specified'}
+                          </div>
                         </td>
                         
                         <td className="status">

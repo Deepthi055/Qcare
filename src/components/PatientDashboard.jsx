@@ -33,6 +33,12 @@ const mockQueues = [
   { id: 'q-004', customQueueId: 'Q-1004', department: 'Pediatrics', status: 'waiting', estimatedWaitTime: 30, position: 4, queuePosition: 4, timestamp: { seconds: Math.floor((Date.now() - 1000 * 60 * 20) / 1000) } }
 ];
 
+function isPermissionDeniedError(err) {
+  const code = String(err?.code || '').toLowerCase();
+  const msg = String(err?.message || '').toLowerCase();
+  return code.includes('permission-denied') || msg.includes('insufficient permissions') || msg.includes('permission-denied');
+}
+
 export default function PatientDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -112,7 +118,12 @@ export default function PatientDashboard() {
         }
       }, (err) => {
         console.error('PatientDashboard queues onSnapshot error', err);
-        setError(err.message || String(err));
+        if (!isPermissionDeniedError(err)) {
+          setError(err.message || String(err));
+        } else {
+          // Avoid noisy error banner for known Firestore rules failures and keep UI usable.
+          setError(null);
+        }
         // fallback to mock data so UI remains usable
         setUsingMockData(true);
         setMyQueues(mockQueues);
@@ -139,7 +150,11 @@ export default function PatientDashboard() {
         setAppointments(apts);
       }, (err) => {
         console.error('PatientDashboard appointments onSnapshot error', err);
-        setError(err.message || String(err));
+        if (!isPermissionDeniedError(err)) {
+          setError(err.message || String(err));
+        } else {
+          setError(null);
+        }
         // fallback to mock
         setUsingMockData(true);
         setAppointments(mockAppointments);
@@ -172,7 +187,11 @@ export default function PatientDashboard() {
           setPrescriptions(rxItems);
         } catch (readErr) {
           console.error('PatientDashboard data load error', readErr);
-          setError(readErr.message || String(readErr));
+          if (!isPermissionDeniedError(readErr)) {
+            setError(readErr.message || String(readErr));
+          } else {
+            setError(null);
+          }
           // apply mock fallback
           setUsingMockData(true);
           setVitals(mockVitals);
