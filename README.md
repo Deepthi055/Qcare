@@ -1,26 +1,21 @@
-# Qcare 🏥
+# Hospital Queue Management System
 
-![GitHub stars](https://img.shields.io/github/stars/Priyadarshinimulloli/Qcare?style=social) 
-![GitHub forks](https://img.shields.io/github/forks/Priyadarshinimulloli/Qcare?style=social) 
-![GitHub issues](https://img.shields.io/github/issues/Priyadarshinimulloli/Qcare) 
-![License](https://img.shields.io/github/license/Priyadarshinimulloli/Qcare)
+A modern, responsive hospital management system built with React and Firebase.
 
-**Smart Hospital Queue Management System**  
-Streamline hospital queues with **digital registration**, **priority case handling**, and **real-time SMS notifications** for smoother patient flow.  
+## Architecture
 
----
+- High-level system architecture diagram: `ARCHITECTURE.md`
+- Editable Draw.io diagram: `architecture.drawio`
 
-## ✨ Features
+## Features
 
-- 📝 **Patient Registration:** Easy web-based registration for patients.  
-- ⏱️ **Queue Management:** Automatically prioritizes critical cases.  
-- 📩 **Real-time Notifications:** Sends SMS alerts to patients and staff.  
-- 📊 **Admin Dashboard:** Monitor queues and patient details efficiently.  
-- 🔗 **Firebase Integration:** For real-time updates and notifications.  
+- 🏥 **Professional Landing Page**: Clean, medical-themed design
+- 👥 **Patient Portal**: Secure login for patients
+- 🔐 **Firebase Authentication**: Secure user management
+- 📱 **Responsive Design**: Works on desktop and mobile
+- ♿ **Accessibility**: WCAG compliant design
 
----
-
-## 💻 Tech Stack
+## Tech Stack
 
 - **Frontend:** HTML, CSS, JavaScript, React.js  
 - **Backend:** Firebase (Realtime Database & Authentication)  
