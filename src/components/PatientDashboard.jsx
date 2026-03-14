@@ -214,10 +214,16 @@ export default function PatientDashboard() {
     };
   }, []);
 
-  // derived display values for hero (fallbacks when fields are not present)
-  const position = myQueues[0]?.position || myQueues[0]?.queuePosition || myQueues[0]?.currentPosition || null;
-  const estimatedTime = myQueues[0]?.estimatedWaitTime || (myQueues.length ? Math.max(5, Math.round((myQueues.length - (position || 0)) * 5)) : null);
-  const patientsBehind = myQueues.length ? Math.max(0, myQueues.length - (position || 0)) : 0;
+  const hasActiveQueue = myQueues.length > 0;
+
+  const getOrdinal = (n) => {
+    if (!Number.isInteger(n) || n <= 0) return "-";
+    if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`;
+    if (n % 10 === 1) return `${n}st`;
+    if (n % 10 === 2) return `${n}nd`;
+    if (n % 10 === 3) return `${n}rd`;
+    return `${n}th`;
+  };
 
   return (
     <div className="pd-root">
@@ -248,17 +254,21 @@ export default function PatientDashboard() {
         {/* Hero center status */}
         <div className="pd-hero">
           <h1 style={{ margin: 0, fontSize: 28 }}>Your Queue Status</h1>
-          <div style={{ color: '#6b7280', marginTop: 6 }}>Appointment ID: {myQueues[0]?.customQueueId || myQueues[0]?.id || '—'}</div>
+          <div style={{ color: '#6b7280', marginTop: 6 }}>
+            Appointment ID: {hasActiveQueue ? (myQueues[0]?.customQueueId || myQueues[0]?.id || '—') : 'No active appointment'}
+          </div>
 
           <div className="pd-status-card">
-            <h3 style={{ marginTop: 0 }}>You are {calculatedPosition || '-'}{(calculatedPosition && calculatedPosition % 10 === 1 && calculatedPosition !== 11) ? 'st' : (calculatedPosition && calculatedPosition % 10 === 2 && calculatedPosition !== 12) ? 'nd' : (calculatedPosition && calculatedPosition % 10 === 3 && calculatedPosition !== 13) ? 'rd' : 'th'} in line!</h3>
+            <h3 style={{ marginTop: 0 }}>
+              {hasActiveQueue ? `You are ${getOrdinal(calculatedPosition)} in line!` : 'You are not currently in a queue'}
+            </h3>
 
             <div className="pd-stats-row">
               <div className="pd-stat">
                 <div className="icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z" stroke="#2563eb" strokeWidth="1.5"/><path d="M4 20c0-3.31 2.69-6 6-6h4c3.31 0 6 2.69 6 6" stroke="#2563eb" strokeWidth="1.5"/></svg>
                 </div>
-                <div className="big">{calculatedPosition || '-'}</div>
+                <div className="big">{hasActiveQueue ? (calculatedPosition || '-') : '-'}</div>
                 <div className="label">Your Position</div>
               </div>
 
@@ -266,7 +276,7 @@ export default function PatientDashboard() {
                 <div className="icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#2563eb" strokeWidth="1.5"/><path d="M12 7v6l4 2" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </div>
-                <div className="big">{calculatedEstimatedTime ? `~${calculatedEstimatedTime}` : '-'}</div>
+                <div className="big">{hasActiveQueue && calculatedEstimatedTime ? `~${calculatedEstimatedTime}` : '-'}</div>
                 <div className="label">min wait</div>
               </div>
 
@@ -274,18 +284,28 @@ export default function PatientDashboard() {
                 <div className="icon">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M17 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zM7 11c1.66 0 3-1.34 3-3S8.66 5 7 5 4 6.34 4 8s1.34 3 3 3zM7 13c-2.33 0-7 1.17-7 3.5V20h14v-3.5C14 14.17 9.33 13 7 13zM17 13c-.29 0-.62.02-.97.05C17.27 13.44 18 14.15 18 15v3h4v-1.5c0-2.33-4.67-3.5-4.03-3.95-.11-.03-.23-.05-.37-.05z" stroke="#2563eb" strokeWidth="0.6"/></svg>
                 </div>
-                <div className="big">{typeof calculatedPatientsBehind === 'number' ? calculatedPatientsBehind : 0}</div>
+                <div className="big">{hasActiveQueue && typeof calculatedPatientsBehind === 'number' ? calculatedPatientsBehind : 0}</div>
                 <div className="label">Patients Behind You</div>
               </div>
             </div>
 
-            <div className="pd-doctor-line">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#10b981" strokeWidth="2"/></svg>
-              <div className="doc-text">You will be seen by: <strong style={{ marginLeft: 6 }}>Dr. Evelyn Reed</strong></div>
-            </div>
+            {hasActiveQueue ? (
+              <div className="pd-doctor-line">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#10b981" strokeWidth="2"/></svg>
+                <div className="doc-text">You will be seen by: <strong style={{ marginLeft: 6 }}>Dr. Evelyn Reed</strong></div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+                <button className="btn-primary" onClick={() => navigate('/home')}>Book A Queue Slot</button>
+              </div>
+            )}
           </div>
 
-          <div className="pd-footer-note">We will send you a notification when it's your turn. Please stay near the waiting area.</div>
+          <div className="pd-footer-note">
+            {hasActiveQueue
+              ? "We will send you a notification when it's your turn. Please stay near the waiting area."
+              : "You currently do not have an active queue entry. Please book from Home to see live status here."}
+          </div>
         </div>
 
         {/* Detailed panels */}

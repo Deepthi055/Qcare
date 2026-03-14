@@ -8,6 +8,7 @@ import Home from './components/Home';
 import PatientDashboard from './components/PatientDashboard';
 import HealthTips from './pages/HealthTips';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import AdminDashboard from './components/AdminDashboard';
 import Analytics from './components/Analytics';
 
@@ -20,7 +21,7 @@ function App() {
       <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
       <Route path="/patient" element={<ProtectedRoute><PatientDashboard /></ProtectedRoute>} />
       <Route path="/health-tips" element={<ProtectedRoute><HealthTips /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
     </Routes>
   );
