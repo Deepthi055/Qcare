@@ -418,41 +418,14 @@ Redirecting to your dashboard...`);
             </div>
             <h1 className="hospital-name">MediCare Hospital</h1>
           </div>
-          <div className="header-actions">
-            {canViewAnalytics && (
-              <button 
-                onClick={() => navigate('/analytics')} 
-                className="analytics-button"
-                title="View Analytics Dashboard"
-              >
-                📊 Analytics
-              </button>
-            )}
-            <button onClick={handleLogout} className="logout-button">
-              Logout
-            </button>
-          </div>
         </div>
       </header>
 
       <main className="home-main">
-        <div className="home-container">
-          {/* Welcome Card */}
-          <div className="welcome-card">
-            <div className="welcome-content">
-              <div className="welcome-icon">🏥</div>
-              <h2>Welcome to Patient Portal</h2>
-              <p>Book your appointment and join the hospital queue easily</p>
-            </div>
-          </div>
-
-          {/* Health Tips Card */}
-          <div className="health-tips-card">
-            <HealthTipPlanner userId={auth?.currentUser?.uid} />
-          </div>
-
-          {/* Queue Booking Card */}
-          <div className="queue-booking-card">
+        <div className="home-layout">
+          <section className="home-primary-column">
+            {/* Queue Booking Card */}
+            <div className="queue-booking-card">
             <div className="card-header">
               <div className="header-icon">📋</div>
               <div className="header-content">
@@ -597,10 +570,10 @@ Redirecting to your dashboard...`);
                 </button>
               </div>
             </form>
-          </div> {/* Close queue-booking-card */}
+            </div>
 
-          {queueId && (
-            <div className="queue-details">
+            {queueId && (
+              <div className="queue-details">
               <div className="queue-details-header">
                 <h3>Your Queue Details</h3>
                 <div className="queue-status-container">
@@ -698,9 +671,41 @@ Redirecting to your dashboard...`);
                   {realTimeUpdates ? '⏸️ Pause Updates' : '▶️ Resume Updates'}
                 </button>
               </div>
+              </div>
+            )}
+          </section>
+
+          <aside className="home-secondary-column">
+            <div className="welcome-card home-card-compact">
+              <div className="welcome-content">
+                <div className="welcome-icon">🏥</div>
+                <h2>Patient Portal</h2>
+                <p>Everything you need before, during, and after your appointment.</p>
+              </div>
             </div>
-          )}
-        </div> {/* Close home-container */}
+
+            <div className="home-quick-actions-card">
+              <h3>Quick Actions</h3>
+              <div className="home-quick-actions-grid">
+                <button type="button" className="analytics-button" onClick={() => navigate('/health-tips')}>
+                  💡 Health Tips
+                </button>
+                {canViewAnalytics && (
+                  <button type="button" className="analytics-button" onClick={() => navigate('/analytics')}>
+                    📊 Analytics
+                  </button>
+                )}
+                <button type="button" className="logout-button" onClick={handleLogout}>
+                  Logout
+                </button>
+              </div>
+            </div>
+
+            <div className="health-tips-card">
+              <HealthTipPlanner userId={auth?.currentUser?.uid} />
+            </div>
+          </aside>
+        </div>
       </main>
     </div>
   );
