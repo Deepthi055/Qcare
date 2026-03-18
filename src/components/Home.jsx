@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, addDoc, serverTimestamp, query, where, getDocs, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { signOut } from "firebase/auth";
 import {
@@ -34,6 +34,7 @@ const Home = () => {
   const [notifications, setNotifications] = useState([]);
   const [customQueueId, setCustomQueueId] = useState(null);
   const [phoneValidation, setPhoneValidation] = useState({ isValid: true, message: '' });
+  const [canViewAnalytics, setCanViewAnalytics] = useState(false);
 
   const avgTimePerPatient = 10; // minutes per patient
 
@@ -86,6 +87,47 @@ const Home = () => {
       navigate("/login");
     }
   }, [navigate]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAdminAccess = async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        if (isMounted) setCanViewAnalytics(false);
+        return;
+      }
+
+      try {
+        const normalizedEmail = currentUser.email?.trim().toLowerCase();
+        const adminDocIds = [currentUser.uid, normalizedEmail].filter(Boolean);
+
+        let hasAdminAccess = false;
+        for (const adminDocId of adminDocIds) {
+          const adminSnap = await getDoc(doc(db, "admins", adminDocId));
+          if (adminSnap.exists() && adminSnap.data()?.isAdmin === true) {
+            hasAdminAccess = true;
+            break;
+          }
+        }
+
+        if (isMounted) {
+          setCanViewAnalytics(hasAdminAccess);
+        }
+      } catch (error) {
+        console.error("Failed to verify admin access for analytics:", error);
+        if (isMounted) {
+          setCanViewAnalytics(false);
+        }
+      }
+    };
+
+    loadAdminAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Real-time queue monitoring with enhanced error handling and reconnection
   useEffect(() => {
@@ -377,13 +419,15 @@ Redirecting to your dashboard...`);
             <h1 className="hospital-name">MediCare Hospital</h1>
           </div>
           <div className="header-actions">
-            <button 
-              onClick={() => navigate('/analytics')} 
-              className="analytics-button"
-              title="View Analytics Dashboard"
-            >
-              📊 Analytics
-            </button>
+            {canViewAnalytics && (
+              <button 
+                onClick={() => navigate('/analytics')} 
+                className="analytics-button"
+                title="View Analytics Dashboard"
+              >
+                📊 Analytics
+              </button>
+            )}
             <button onClick={handleLogout} className="logout-button">
               Logout
             </button>
