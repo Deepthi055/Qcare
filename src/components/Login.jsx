@@ -289,6 +289,15 @@ const Login = ({ mode = "patient" }) => {
             <p>{loginSubtitle}</p>
           </div>
 
+          <div className="auth-guidance" role="note" aria-label="Login guidance">
+            <p className="auth-guidance-title">Before you continue</p>
+            <ul className="auth-guidance-list">
+              <li>Use the same email you used during registration.</li>
+              <li>Google sign-in is available for faster access.</li>
+              <li>Admin portal is restricted to approved staff accounts.</li>
+            </ul>
+          </div>
+
           {isAdminMode && location.state?.adminDenied && (
             <div className="error-message" style={{ marginBottom: 12 }}>
               You are signed in but not authorized as admin.
